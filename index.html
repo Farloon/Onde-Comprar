@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Onde Comprar - Bertolino is Coffee</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
+    #map { height: 80vh; width: 100%; }
+    #form-container {
+      padding: 1rem;
+      background: #f5f5f5;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    input[type="text"] {
+      flex: 1;
+      padding: 8px;
+      font-size: 16px;
+    }
+    button {
+      padding: 8px 16px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div id="form-container">
+    <input type="text" id="endereco" placeholder="Digite seu endereço, cidade ou CEP">
+    <button onclick="buscarEndereco()">Buscar</button>
+  </div>
+  <div id="map"></div>
+
+  <!-- Google Maps API -->
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCfqJASMqk4mM0WI6JFPkLP1SJa2Mb24Rg"></script>
+
+  <!-- PapaParse para ler CSV -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+  <script>
+    let map, geocoder;
+    let markers = [];
+
+    function initMap() {
+      map = new google.maps.Map(document.getElementById('map'), {
+        center: { lat: -15.77972, lng: -47.92972 }, // Brasil
+        zoom: 5,
+      });
+
+      geocoder = new google.maps.Geocoder();
+      carregarParceiros();
+    }
+
+    function buscarEndereco() {
+      const endereco = document.getElementById("endereco").value;
+      if (!endereco) return;
+
+      geocoder.geocode({ address: endereco }, function(results, status) {
+        if (status === "OK") {
+          const local = results[0].geometry.location;
+          map.setCenter(local);
+          map.setZoom(12);
+        } else {
+          alert("Endereço não encontrado: " + status);
+        }
+      });
+    }
+
+    function carregarParceiros() {
+      fetch("parceiros.csv")
+        .then(response => response.text())
+        .then(csvData => {
+          Papa.parse(csvData, {
+            header: true,
+            complete: function(results) {
+              results.data.forEach(p => {
+                if (p.endereco) {
+                  geocoder.geocode({ address: p.endereco }, function(res, status) {
+                    if (status === "OK" && res[0]) {
+                      const loc = res[0].geometry.location;
+                      const marker = new google.maps.Marker({
+                        map,
+                        position: loc,
+                        title: p.nome
+                      });
+
+                      const info = new google.maps.InfoWindow({
+                        content: `<strong>${p.nome}</strong><br>${p.endereco}`
+                      });
+
+                      marker.addListener("click", () => {
+                        info.open(map, marker);
+                      });
+
+                      markers.push(marker);
+                    }
+                  });
+                }
+              });
+            }
+          });
+        })
+        .catch(error => {
+          console.error("Erro ao carregar CSV:", error);
+        });
+    }
+
+    window.onload = initMap;
+  </script>
+</body>
+</html>
