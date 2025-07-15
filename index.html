@@ -33,22 +33,17 @@
   </div>
   <div id="map"></div>
 
-  <!-- Google Maps API -->
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCfqJASMqk4mM0WI6JFPkLP1SJa2Mb24Rg"></script>
-
-  <!-- PapaParse para ler CSV -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
   <script>
     let map, geocoder;
-    let markers = [];
 
     function initMap() {
       map = new google.maps.Map(document.getElementById('map'), {
-        center: { lat: -15.77972, lng: -47.92972 }, // Brasil
+        center: { lat: -15.77972, lng: -47.92972 },
         zoom: 5,
       });
-
       geocoder = new google.maps.Geocoder();
       carregarParceiros();
     }
@@ -56,11 +51,9 @@
     function buscarEndereco() {
       const endereco = document.getElementById("endereco").value;
       if (!endereco) return;
-
       geocoder.geocode({ address: endereco }, function(results, status) {
         if (status === "OK") {
-          const local = results[0].geometry.location;
-          map.setCenter(local);
+          map.setCenter(results[0].geometry.location);
           map.setZoom(12);
         } else {
           alert("Endereço não encontrado: " + status);
@@ -70,40 +63,43 @@
 
     function carregarParceiros() {
       fetch("parceiros.csv")
-        .then(response => response.text())
-        .then(csvData => {
-          Papa.parse(csvData, {
+        .then(resp => resp.text())
+        .then(csv => {
+          Papa.parse(csv, {
             header: true,
-            complete: function(results) {
-              results.data.forEach(p => {
-                if (p.endereco) {
-                  geocoder.geocode({ address: p.endereco }, function(res, status) {
-                    if (status === "OK" && res[0]) {
-                      const loc = res[0].geometry.location;
-                      const marker = new google.maps.Marker({
-                        map,
-                        position: loc,
-                        title: p.nome
-                      });
-
-                      const info = new google.maps.InfoWindow({
-                        content: `<strong>${p.nome}</strong><br>${p.endereco}`
-                      });
-
-                      marker.addListener("click", () => {
-                        info.open(map, marker);
-                      });
-
-                      markers.push(marker);
-                    }
-                  });
+            complete: function(res) {
+              console.log("📄 CSV carregado:", res.data);
+              res.data.forEach((p, i) => {
+                if (!p.nome || !p.endereco) {
+                  console.warn(`⚠️ Linha ${i + 2} incompleta, ignorada`);
+                  return;
                 }
+                console.log(`📍 Geocodificando: ${p.nome} - ${p.endereco}`);
+                geocoder.geocode({ address: p.endereco }, (resGeo, status) => {
+                  if (status === "OK" && resGeo[0]) {
+                    const marker = new google.maps.Marker({
+                      map,
+                      position: resGeo[0].geometry.location,
+                      title: p.nome
+                    });
+
+                    const info = new google.maps.InfoWindow({
+                      content: `<strong>${p.nome}</strong><br>${p.endereco}`
+                    });
+
+                    marker.addListener("click", () => {
+                      info.open(map, marker);
+                    });
+                  } else {
+                    console.error(`❌ Falha ao localizar ${p.nome}: ${status}`);
+                  }
+                });
               });
             }
           });
         })
         .catch(error => {
-          console.error("Erro ao carregar CSV:", error);
+          console.error("❌ Erro ao carregar parceiros.csv:", error);
         });
     }
 
