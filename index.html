@@ -66,42 +66,44 @@
         .then(resp => resp.text())
         .then(csv => {
           Papa.parse(csv, {
-            header: true,
-            complete: function(res) {
-              console.log("📄 CSV carregado:", res.data);
-              res.data.forEach((p, i) => {
-                if (!p.nome || !p.endereco) {
-                  console.warn(`⚠️ Linha ${i + 2} incompleta, ignorada`);
-                  return;
-                }
-                console.log(`📍 Geocodificando: ${p.nome} - ${p.endereco}`);
-                geocoder.geocode({ address: p.endereco }, (resGeo, status) => {
-                  if (status === "OK" && resGeo[0]) {
-                    const marker = new google.maps.Marker({
-                      map,
-                      position: resGeo[0].geometry.location,
-                      title: p.nome
-                    });
+  header: true,
+  complete: function(res) {
+    console.log("📄 CSV carregado:", res.data);
+    res.data.forEach((p, i) => {
+      if (!p.nome || !p.endereco || !p.cidade || !p.cep) {
+        console.warn(`⚠️ Linha ${i + 2} incompleta, ignorada`);
+        return;
+      }
 
-                    const info = new google.maps.InfoWindow({
-                      content: `<strong>${p.nome}</strong><br>${p.endereco}`
-                    });
+      const enderecoCompleto = `${p.endereco}, ${p.cidade}, ${p.cep}`;
 
-                    marker.addListener("click", () => {
-                      info.open(map, marker);
-                    });
-                  } else {
-                    console.error(`❌ Falha ao localizar ${p.nome}: ${status}`);
-                  }
-                });
-              });
-            }
+      console.log(`📍 Geocodificando: ${p.nome} - ${enderecoCompleto}`);
+      geocoder.geocode({ address: enderecoCompleto }, (resGeo, status) => {
+        if (status === "OK" && resGeo[0]) {
+          const marker = new google.maps.Marker({
+            map,
+            position: resGeo[0].geometry.location,
+            title: p.nome
           });
-        })
-        .catch(error => {
-          console.error("❌ Erro ao carregar parceiros.csv:", error);
-        });
-    }
+
+          const info = new google.maps.InfoWindow({
+            content: `
+              <strong>${p.nome}</strong><br>
+              ${p.endereco}<br>
+              ${p.cidade} - CEP: ${p.cep}
+            `
+          });
+
+          marker.addListener("click", () => {
+            info.open(map, marker);
+          });
+        } else {
+          console.error(`❌ Falha ao localizar ${p.nome}: ${status}`);
+        }
+      });
+    });
+  }
+});
 
     window.onload = initMap;
   </script>
